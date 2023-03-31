@@ -28,14 +28,14 @@ const XLSX = require("xlsx-js-style");
                     if (prodRating.length !== 3) prodRating = ""
 
                     let prodReviews = link.querySelector(".a-size-base.s-underline-text")?.textContent
-                    if (prodReviews.includes("$")) {
+                    if (prodReviews?.includes("$")) {
                         prodReviews = ""
                     } else {
                         prodReviews = prodReviews.replace(/[()]/g, "")
                     }
 
                     let dataObject = {
-                        Link: link.querySelector(".a-link-normal").href,
+                        Link: link.querySelector(".a-link-normal")?.href,
                         Name: splitName[0],
                         Current_Price: link.querySelector(".a-offscreen")?.textContent,
                         Orginal_Price: "",
@@ -72,14 +72,14 @@ const XLSX = require("xlsx-js-style");
                 if (link.querySelector(".c-shca-review-stars__icon")) prodRating = "Rating Exists"
 
                 let dataObject = {
-                    Link: link.querySelector(".c-shca-icon-item__body-image a").href,
+                    Link: link.querySelector(".c-shca-icon-item__body-image a")?.href,
                     Name: splitName[0],
                     Current_Price: link.querySelector(".c-shca-icon-item__summary-list span")?.textContent.trim(),
                     Orginal_Price: "",
                     Rating: prodRating
                 }
 
-                if (link.querySelector(".c-shca-icon-item__summary-regular span").textContent !== dataObject.Current_Price) dataObject.Orginal_Price = link.querySelector(".c-shca-icon-item__summary-regular span")?.textContent
+                if (link.querySelector(".c-shca-icon-item__summary-regular span")?.textContent !== dataObject.Current_Price) dataObject.Orginal_Price = link.querySelector(".c-shca-icon-item__summary-regular span")?.textContent
 
                 return dataObject
             })
@@ -87,6 +87,33 @@ const XLSX = require("xlsx-js-style");
         return products
     }
 
+    async function neweggSearch(url, browser) {
+        const page = await browser.newPage()
+        await page.setViewport({ width: 1920, height: 1080 })
+        await page.goto(url, { waitUntil: "domcontentloaded" })
+        await page.select(".list-tool-view select", "96")
+        await page.waitForSelector(".item-cells-wrap.border-cells")
+        const products = await page.evaluate(() => {
+            const links = Array.from(document.querySelectorAll(".item-cell"))
+            if (!links.length) return [{ Name: "No results for search" }]
+
+            return links.map(link => {
+                const prodName = link.querySelector(".item-title")?.textContent.trim()
+                const splitName = prodName.split("(")
+                let dataObject = {
+                    Link: link.querySelector(".item-rating")?.href || '',
+                    Name: splitName[0],
+                    Current_Price:  link.querySelector(".price-current")?.textContent.split(/\s/)[0],
+                    Orginal_Price: link.querySelector(".price-was-data")?.textContent.split(/\s/)[0] || "",
+                    Rating: link.querySelector(".rating.rating-5")?.getAttribute("aria-label") || "No rating",
+                    Review_Count: link.querySelector(".item-rating-num")?.textContent.replace(/[()]/g, "")
+                }
+
+                return dataObject
+            })
+        })
+        return products
+    }
 
     async function runSearch(searchTerm, website, webShort, browser) {
         let searchResults = []
@@ -103,6 +130,10 @@ const XLSX = require("xlsx-js-style");
                 console.log("Searching MemoryExp")
                 searchResults.push(...await memExpSearch(url, browser))
                 break
+            case "Newegg":
+                console.log("Searching Newegg")
+                searchResults.push(...await neweggSearch(url, browser))
+                break
         }
         return searchResults
     }
@@ -110,8 +141,8 @@ const XLSX = require("xlsx-js-style");
     const searchTerm = ["rtx 4080", "rtx 4070ti"]
 
 
-    const websites = ["https://www.amazon.ca/s?k=", "https://www.memoryexpress.com/Search/Products?Search="]
-    const websiteShort = ["Amazon", "MemoryExp"]
+    const websites = ["https://www.amazon.ca/s?k=", "https://www.memoryexpress.com/Search/Products?Search=", "https://www.newegg.ca/p/pl?d="]
+    const websiteShort = ["Amazon", "MemoryExp","Newegg"]
 
     try {
         const wb = XLSX.utils.book_new()
@@ -123,8 +154,6 @@ const XLSX = require("xlsx-js-style");
                 const products = await runSearch(searchTerm[i], websites[j], websiteShort[j], browser)
                 const sheet = XLSX.utils.json_to_sheet(products)
                 const js = XLSX.utils.sheet_to_json(sheet, { header: 1 })
-
-                let linkText = websiteShort[j]
 
                 js.forEach((row, index) => {
                     const urlIndex = 0
