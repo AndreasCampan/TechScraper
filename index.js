@@ -139,8 +139,6 @@ const XLSX = require("xlsx-js-style");
     }
 
     const searchTerm = ["rtx 4080", "rtx 4070ti"]
-
-
     const websites = ["https://www.amazon.ca/s?k=", "https://www.memoryexpress.com/Search/Products?Search=", "https://www.newegg.ca/p/pl?d="]
     const websiteShort = ["Amazon", "MemoryExp","Newegg"]
 
